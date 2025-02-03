@@ -3,16 +3,14 @@ use hyper::service::{make_service_fn, service_fn};
 use hyper::{header, Body, Request, Response, Server, StatusCode, Uri};
 use sha2::{Digest, Sha256};
 use std::env;
+use std::str::FromStr;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let _ = dotenvy::dotenv();
 
-    let private_key = env::var("PRIVATE_KEY").expect("PRIVATE_KEY must be set");
-    let target_url = env::var("TARGET_URL")
-        .expect("TARGET_URL must be set")
-        .parse::<Uri>()
-        .expect("Invalid TARGET_URL");
+    let private_key = env::var("PRIVATE_KEY")?;
+    let target_url = env::var("TARGET_URL")?.parse::<Uri>()?;
 
     let client = hyper::Client::new();
 
@@ -38,20 +36,52 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         .path_and_query()
                         .map(|p| p.as_str())
                         .unwrap_or("/");
-                    // let target = format!("{}{}", target_url, path);
-                    *req.uri_mut() = Uri::builder()
-                        .scheme(target_url.scheme().unwrap().as_str())
-                        .authority(target_url.authority().unwrap().as_str())
+
+                    // Build target URI with proper error handling
+                    let scheme = match target_url.scheme() {
+                        Some(s) => s.as_str(),
+                        None => {
+                            return Ok(internal_server_error("Target URL missing scheme"));
+                        }
+                    };
+                    let authority = match target_url.authority() {
+                        Some(a) => a.as_str(),
+                        None => {
+                            return Ok(internal_server_error("Target URL missing authority"));
+                        }
+                    };
+                    let new_uri = match Uri::builder()
+                        .scheme(scheme)
+                        .authority(authority)
                         .path_and_query(path)
                         .build()
-                        .unwrap();
+                    {
+                        Ok(uri) => uri,
+                        Err(e) => {
+                            return Ok(internal_server_error(&format!(
+                                "Failed to build URI: {}",
+                                e
+                            )));
+                        }
+                    };
+                    *req.uri_mut() = new_uri;
 
-                    // Set X-Scope-OrgID header
+                    // Handle header parsing safely
+                    let header_value = match user_id.parse() {
+                        Ok(v) => v,
+                        Err(e) => {
+                            return Ok(internal_server_error(&format!(
+                                "Invalid user ID format: {}",
+                                e
+                            )));
+                        }
+                    };
+
                     req.headers_mut().insert(
-                        header::HeaderName::from_static("X-Scope-OrgID"),
-                        user_id.parse().unwrap(),
+                        header::HeaderName::from_static("x-scope-orgid"),
+                        header_value,
                     );
-
+                    
                     client.request(req).await
                 }
             }))
@@ -105,7 +135,17 @@ fn parse_basic_auth(header: &str) -> Result<(String, String), ()> {
 fn unauthorized_response(message: &str) -> Response<Body> {
     Response::builder()
         .status(StatusCode::UNAUTHORIZED)
-        .header(header::WWW_AUTHENTICATE, "Basic realm=\"Restricted\"")
+        .header(
+            header::WWW_AUTHENTICATE,
+            header::HeaderValue::from_static("Basic realm=\"Restricted\""),
+        )
         .body(Body::from(message.to_string()))
-        .unwrap()
+        .expect("Valid response")
+}
+
+fn internal_server_error(message: &str) -> Response<Body> {
+    Response::builder()
+        .status(StatusCode::INTERNAL_SERVER_ERROR)
+        .body(Body::from(message.to_string()))
+        .expect("Valid response")
 }
