@@ -1,6 +1,6 @@
 use std::env;
 
-use base64_simd::URL_SAFE_NO_PAD;
+use base64_simd::{STANDARD, URL_SAFE_NO_PAD};
 use clap::Parser;
 use sha2::{Digest, Sha256};
 
@@ -22,7 +22,11 @@ fn main() {
     let args = Cli::parse();
     let keys = args.private_key.or_else(|| env::var("PRIVATE_KEY").ok());
     let signature = generate_signature(&keys.expect("No private key specified. no PRIVATE_KEY in env file or environment, or --private-key flag"), &args.user_id);
-    println!("{}", signature);
+    println!(
+        "Basic Password:\n {}\nHTTP Header:\n Authentication: Basic {}",
+        signature,
+        STANDARD.encode_to_string(format!("{}:{}", args.user_id, signature))
+    );
 }
 
 /// Generates a signature by hashing the concatenation of the private key and user ID using SHA-256
