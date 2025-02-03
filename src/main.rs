@@ -1,7 +1,7 @@
 use base64_simd::URL_SAFE_NO_PAD;
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{
-    Body, Client, Request, Response, Server, StatusCode, Uri, client::HttpConnector, header,
+    client::HttpConnector, header, Body, Client, Request, Response, Server, StatusCode, Uri,
 };
 use sha2::{Digest, Sha256};
 use std::env;
@@ -10,7 +10,7 @@ type HttpClient = Client<HttpConnector>;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    dotenvy::dotenv()?;
+    let _ = dotenvy::dotenv();
 
     let private_key = env::var("PRIVATE_KEY").expect("PRIVATE_KEY must be set");
     let target_url = env::var("TARGET_URL")
