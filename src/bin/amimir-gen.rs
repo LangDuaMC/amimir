@@ -23,7 +23,7 @@ fn main() {
     let keys = args.private_key.or_else(|| env::var("PRIVATE_KEY").ok());
     let signature = generate_signature(&keys.expect("No private key specified. no PRIVATE_KEY in env file or environment, or --private-key flag"), &args.user_id);
     println!(
-        "Basic Password:\n {}\nHTTP Header:\n Authentication: Basic {}",
+        "Basic Password:\n {}\nHTTP Header:\n Authorization: Basic {}",
         signature,
         STANDARD.encode_to_string(format!("{}:{}", args.user_id, signature))
     );

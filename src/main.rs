@@ -1,12 +1,8 @@
 use base64_simd::URL_SAFE_NO_PAD;
 use hyper::service::{make_service_fn, service_fn};
-use hyper::{
-    client::HttpConnector, header, Body, Client, Request, Response, Server, StatusCode, Uri,
-};
+use hyper::{header, Body, Request, Response, Server, StatusCode, Uri};
 use sha2::{Digest, Sha256};
 use std::env;
-
-type HttpClient = Client<HttpConnector>;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -18,7 +14,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         .parse::<Uri>()
         .expect("Invalid TARGET_URL");
 
-    let client = HttpClient::new();
+    let client = hyper::Client::new();
 
     let make_svc = make_service_fn(move |_| {
         let client = client.clone();
@@ -42,12 +38,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                         .path_and_query()
                         .map(|p| p.as_str())
                         .unwrap_or("/");
-                    let target = format!("{}{}", target_url, path);
-                    *req.uri_mut() = target.parse().unwrap();
+                    // let target = format!("{}{}", target_url, path);
+                    *req.uri_mut() = Uri::builder()
+                        .scheme(target_url.scheme().unwrap().as_str())
+                        .authority(target_url.authority().unwrap().as_str())
+                        .path_and_query(path)
+                        .build()
+                        .unwrap();
 
                     // Set X-Scope-OrgID header
                     req.headers_mut().insert(
-                        header::HeaderName::from_static("x-scope-orgid"),
+                        header::HeaderName::from_static("X-Scope-OrgID"),
                         user_id.parse().unwrap(),
                     );
 
