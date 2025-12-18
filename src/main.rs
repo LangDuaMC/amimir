@@ -1,4 +1,4 @@
-use base64_simd::STANDARD;
+use base64_simd::{STANDARD, STANDARD_NO_PAD};
 use hyper::service::{make_service_fn, service_fn};
 use hyper::{header, Body, Method, Request, Response, Server, StatusCode, Uri};
 use sha2::{Digest, Sha256};
@@ -130,7 +130,10 @@ fn validate_org_auth(req: &Request<Body>, auth_salt: &str, org_id: &str) -> Resu
 
 fn parse_basic_auth(header: &str) -> Result<(String, String), ()> {
     let stripped = header.strip_prefix("Basic ").ok_or(())?;
-    let decoded = STANDARD.decode_to_vec(stripped.as_bytes()).map_err(|_| ())?;
+    let decoded = STANDARD
+        .decode_to_vec(stripped.as_bytes())
+        .or_else(|_| STANDARD_NO_PAD.decode_to_vec(stripped.as_bytes()))
+        .map_err(|_| ())?;
     let credentials = String::from_utf8(decoded).map_err(|_| ())?;
     let mut parts = credentials.splitn(2, ':');
 
