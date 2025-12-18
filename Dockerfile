@@ -13,5 +13,4 @@ RUN cargo build --target x86_64-unknown-linux-musl --release
 FROM alpine:latest
 RUN apk add --no-cache musl
 COPY --from=builder /usr/src/target/x86_64-unknown-linux-musl/release/amimir* /usr/local/bin
-EXPOSE 3000
 CMD ["amimir"]
